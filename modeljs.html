@@ -1,0 +1,142 @@
+<html>
+
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+	<link rel="stylesheet" href="modeljs.css" type="text/css" media="all"/> 
+	<title>ModelJS - JIPDA</title>
+	<script type="text/javascript" src="lib/esprima.js"></script>
+	<script type="text/javascript" src="common.js"></script>
+	<script type="text/javascript" src="agc.js"></script>
+	<script type="text/javascript" src="lattice.js"></script>
+	<script type="text/javascript" src="lattice1.js"></script>
+	<script type="text/javascript" src="setLattice.js"></script>
+	<script type="text/javascript" src="address.js"></script>
+	<script type="text/javascript" src="jsEsprima.js"></script>
+	<script type="text/javascript" src="store.js"></script>
+	<script type="text/javascript" src="graph.js"></script>
+	<script type="text/javascript" src="dsg.js"></script>
+	<script type="text/javascript" src="pushdown.js"></script>
+	<script type="text/javascript" src="jsCesk.js"></script>
+	<script type="text/javascript" src="tagAg.js"></script>
+	<script type="text/javascript" src="object.js"></script>
+	<script type="text/javascript" src="analysis.js"></script>
+	<script type="text/javascript" src="modeljs.js"></script>
+	<script type="text/javascript" src="lib/web/jquery-1.7.2.min.js"></script>
+	<script type="text/javascript" src="lib/web/ace/ace.js"></script>
+	<script type="text/javascript" src="lib/web/viz.js"></script>
+	<script type="text/javascript" src="lib/web/vizgraph2.js"></script>
+	<script type="text/javascript">
+
+  var print = function () { console.log(Array.prototype.slice.call(arguments).join(" ")) }		
+	var editor, meta;
+	
+	function doIt()
+	{
+		$("#resultValue").empty();
+		$("#dsg").empty();
+		$("#eg").empty();
+	  var src = editor.getSession().getValue();
+    ast = Ast.createAst(src, {loc:true});
+    var lat = new Lattice1();
+    //var lat = new SetLattice(3);
+    var cesk = jsCesk({a:tagAg, p:lat});
+    var start = Date.now();
+		dsg = new Pushdown().analyze(ast, cesk);
+    var end = Date.now();
+		var resultValue = dsg.stepFwOver(dsg.initial).map(function (c) {return c.q.value}).reduce(Lattice.join, BOT);
+		$("#resultValue").text(resultValue + " (states " + dsg.etg.nodes().length + ", edges " + dsg.etg.edges().length + ", time " + (end-start) + ")");
+    var emptySet = ArraySet.empty();
+		var graph = drawLinks(dsg.etg, dsg.ecg, HashMap.empty(), $("#dsg"), window);
+		states = graph.nodes;
+		edges = graph.edges;
+		
+/* 		eg = createEffectGraph(dsg);
+		var egNodeStyle = function (node)
+		{
+		  if (node instanceof Addr)
+		  {
+		    return "shape=box";
+		  }
+		  return "";
+		}
+		var egDot = eg.toDot({nodeStyle:egNodeStyle});
+		print("egDot", egDot);
+	  var egSvg = Viz(egDot, "svg");
+	  $("#eg").append(egSvg);
+ */	}
+	
+	function doMeta()
+	{
+		$("#metaValue").empty();	  
+	  var metaSrc = meta.getSession().getValue();
+	  var metaResult = eval(metaSrc);
+	  unhighlight();
+	  highlight(metaResult);
+	  $("#metaValue").text(metaResult);
+	}
+
+	$(function ()
+	{
+	  editor = ace.edit("editor");
+	  editor.getSession().setMode("ace/mode/javascript");
+	  meta = ace.edit("meta");
+	  meta.getSession().setMode("ace/mode/javascript");
+	})
+	
+	function highlightState(q)
+	{
+	  var i = Arrays.indexOf(q, states, Eq.equals);
+	  $("g#"+i+ " ellipse").css("stroke", "red").css("stroke-width", "3px");
+	}
+	
+	function highlightEdge(e)
+	{
+	  var i = Arrays.indexOf(e, edges, Eq.equals);
+	  $("g#edge"+((i+1)*2) + " path").css("stroke", "red").css("stroke-width", "3px");
+	}
+	
+	function highlight(x)
+	{
+	  if (Array.isArray(x))
+	  {
+	    x.forEach(highlight);
+	  }
+	  if (!x)
+	  {
+	    return;
+	  }
+	  states.forEach(
+		  function (q) 
+		  {
+		    if (q.equals(x)) {highlightState(q)}
+		  })
+	  edges.forEach(
+		  function (e) 
+		  {
+		    if (e.equals(x)) {highlightEdge(e)}
+		  })
+	}
+	
+	function unhighlight()
+	{
+	  $("g ellipse").css("stroke", "black").css("stroke-width", "1px");
+	  $("g path").css("stroke", "black").css("stroke-width", "1px");
+	}
+		
+	</script>
+</head>
+
+<body>
+	<div id="editor" style="width: 640px; height: 320px;">//target program</div>
+	<div id="meta" style="width: 640px; height: 320px;">//meta</div>
+	<div id="manip" style="">
+		<button id="eval" name="eval" onClick="doIt()">Eval</button>
+		<span id="resultValue"></span>
+		<button id="meta" name="meta" onClick="doMeta()">Meta</button>
+		<span id="metaValue"></span>
+	</div>
+	<div id="dsg"></div>
+	<div id="eg"></div>
+</body>
+
+</html>
